@@ -4,10 +4,15 @@
   var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
   var player;
   var otherPlayers = []
+  var bulletsToFire = []
   var platforms;
   var cursors;
   var otherPlayersGroup;
   var crosshair;
+  var bullets;
+  var otherPlayerBullets;
+  var fireRate = 300;
+  var nextFire = 0;
 
   function preload() {
 
@@ -16,6 +21,7 @@
       game.load.image('star', 'assets/star.png');
       game.load.image('crosshair', 'assets/crosshair.png');
       game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
+      game.load.image('bullet', 'assets/bullet.png');
 
   }
 
@@ -39,10 +45,15 @@
     otherPlayers[data.id].needsRemoved = true
   })
 
+  socket.on('fire', function(data) {
+    bulletsToFire.push(data)
+  })
+
   function create() {
 
       //  We're going to be using physics, so enable the Arcade Physics system
       game.physics.startSystem(Phaser.Physics.ARCADE);
+      game.physics.arcade.gravity.y = 300;
 
       //  A simple background for our game
       game.add.sprite(0, 0, 'sky');
@@ -69,6 +80,8 @@
       ledge = platforms.create(-150, 250, 'ground');
       ledge.body.immovable = true;
 
+      platforms.setAll('body.allowGravity', false);
+
       // The player and its settings
       player = game.add.sprite(32, game.world.height - 150, 'dude');
 
@@ -76,7 +89,6 @@
       game.physics.arcade.enable(player);
 
       //  Player physics properties. Give the little guy a slight bounce.
-      player.body.gravity.y = 300;
       player.body.collideWorldBounds = true;
 
       //  Our two animations, walking left and right.
@@ -86,10 +98,30 @@
       crosshair = game.add.sprite(player.x+10, player.y, 'crosshair');
       crosshair.anchor.set(0,0.5)
 
+      bullets = game.add.group();
+      bullets.enableBody = true;
+      bullets.physicsBodyType = Phaser.Physics.ARCADE;
+
+      bullets.createMultiple(50, 'bullet');
+      bullets.setAll('checkWorldBounds', true);
+      bullets.setAll('outOfBoundsKill', true);
+      bullets.setAll('body.allowGravity', true);
+
+      otherPlayerBullets = game.add.group();
+      otherPlayerBullets.enableBody = true;
+      otherPlayerBullets.physicsBodyType = Phaser.Physics.ARCADE;
+
+      otherPlayerBullets.createMultiple(50, 'bullet');
+      otherPlayerBullets.setAll('checkWorldBounds', true);
+      otherPlayerBullets.setAll('outOfBoundsKill', true);
+      otherPlayerBullets.setAll('body.allowGravity', true);
+
       //  Our controls.
       cursors = game.input.keyboard.createCursorKeys();
 
       otherPlayersGroup = game.add.group()
+      otherPlayersGroup.enableBody = true;
+      otherPlayersGroup.physicsBodyType = Phaser.Physics.ARCADE;
 
       socket.emit('addPlayer', {'x':player.body.x, 'y':player.body.y}, function(players) {
         for (var id in players) {
@@ -111,6 +143,7 @@
             otherPlayer.player.animations.add('left', [0, 1, 2, 3], 10, true);
             otherPlayer.player.animations.add('right', [5, 6, 7, 8], 10, true);
             otherPlayer.player.frame = 4
+            otherPlayer.player.body.allowGravity = false
           } else if(otherPlayer.needsUpdated) {
             otherPlayer.needsUpdated = false
             otherPlayer.player.x = otherPlayer.x;
@@ -133,8 +166,22 @@
           }
       }
 
+      while(bulletsToFire.length) {
+        var bulletData = bulletsToFire.shift()
+
+        var bullet = otherPlayerBullets.getFirstDead();
+        bullet.reset(bulletData.x, bulletData.y);
+        bullet.rotation = bulletData.rotation
+        game.physics.arcade.velocityFromRotation(bullet.rotation, bulletData.power, bullet.body.velocity);
+      }
+
       //  Collide the player and the stars with the platforms
       game.physics.arcade.collide(player, platforms);
+
+      game.physics.arcade.overlap(bullets, platforms, bulletHitPlatform, null, this);
+      game.physics.arcade.overlap(otherPlayerBullets, platforms, bulletHitPlatform, null, this);
+      game.physics.arcade.overlap(bullets, otherPlayersGroup, bulletHitPlayer, null, this);
+      game.physics.arcade.overlap(otherPlayerBullets, player, bulletHitPlayer, null, this);
 
       //  Reset the players velocity (movement)
       player.body.velocity.x = 0;
@@ -171,10 +218,21 @@
       crosshair.rotation = game.physics.arcade.angleToPointer(crosshair);
 
       //  Allow the player to jump if they are touching the ground.
-      if (cursors.up.isDown && player.body.touching.down)
-      {
+      if (cursors.up.isDown && player.body.touching.down) {
           player.body.velocity.y = -350;
       }
+
+      if (crosshair.visible && game.input.activePointer.isDown) {
+          fire();
+      }
+
+      bullets.forEachAlive(function(bullet) {
+          bullet.rotation = Math.atan2(bullet.body.velocity.y, bullet.body.velocity.x);
+      }, this);
+
+      otherPlayerBullets.forEachAlive(function(bullet) {
+          bullet.rotation = Math.atan2(bullet.body.velocity.y, bullet.body.velocity.x);
+      }, this);
 
       if(player.body.x != player.previousPosition.x || player.body.y != player.previousPosition.y || (animation == "stop" && player.previousAnimation != "stop")) {
         socket.emit('move', {'x':player.body.x, 'y':player.body.y, 'animation':animation});
@@ -183,6 +241,39 @@
       } else {
         crosshair.visible = true;
       }
+  }
+
+  function bulletHitPlatform(bullet, platform) {
+    bullet.kill()
+  }
+
+  function bulletHitPlayer(bullet, player) {
+    bullet.kill()
+    player.kill()
+  }
+
+  function fire() {
+      if (game.time.now > nextFire && bullets.countDead() > 0) {
+          nextFire = game.time.now + fireRate;
+
+          var bulletX = crosshair.x - 8
+          var bulletY = crosshair.y - 8
+          var bulletRotation = game.physics.arcade.angleToPointer(crosshair);
+          var power = 500
+
+          var bullet = bullets.getFirstDead();
+          bullet.reset(bulletX, bulletY);
+          bullet.rotation = bulletRotation
+          game.physics.arcade.velocityFromRotation(bullet.rotation, 500, bullet.body.velocity);
+
+          socket.emit('fire', {
+            x: bulletX,
+            y: bulletY,
+            rotation: bulletRotation,
+            power: power
+          })
+      }
+
   }
 
   function difference(a, b) { return Math.abs(a - b);}

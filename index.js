@@ -50,6 +50,10 @@ io.on('connection', function (socket) {
     socket.broadcast.emit('move', data);
   });
 
+  socket.on('fire', function(data) {
+    socket.broadcast.emit('fire', data)
+  })
+
   socket.on('disconnect', function () {
     console.log("disconnect");
 
