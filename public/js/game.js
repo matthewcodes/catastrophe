@@ -36,6 +36,10 @@
     otherPlayers[data.id] = data;
   })
 
+  socket.on('removePlayer', function(data) {
+    otherPlayers[data.id].needsRemoved = true
+  })
+
   function create() {
 
       //  We're going to be using physics, so enable the Arcade Physics system
@@ -143,6 +147,11 @@
               otherPlayer.player.frame = 4;
             }
 
+          } else if(otherPlayer.needsRemoved) {
+            otherPlayer.player.destroy()
+            otherPlayer.needsRemoved = false;
+            otherPlayer.needsAdded = false;
+            otherPlayer.needsUpdated = false;
           }
       }
 

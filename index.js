@@ -67,5 +67,7 @@ io.on('connection', function (socket) {
       players.splice(i, 1);
     }
 
+    socket.broadcast.emit('removePlayer', {id:socket.id});
+
   });
 });
