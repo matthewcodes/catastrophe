@@ -7,12 +7,14 @@
   var platforms;
   var cursors;
   var otherPlayersGroup;
+  var crosshair;
 
   function preload() {
 
       game.load.image('sky', 'assets/sky.png');
       game.load.image('ground', 'assets/platform.png');
       game.load.image('star', 'assets/star.png');
+      game.load.image('crosshair', 'assets/crosshair.png');
       game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
 
   }
@@ -74,7 +76,6 @@
       game.physics.arcade.enable(player);
 
       //  Player physics properties. Give the little guy a slight bounce.
-      player.body.bounce.y = 0.2;
       player.body.gravity.y = 300;
       player.body.collideWorldBounds = true;
 
@@ -82,6 +83,8 @@
       player.animations.add('left', [0, 1, 2, 3], 10, true);
       player.animations.add('right', [5, 6, 7, 8], 10, true);
 
+      crosshair = game.add.sprite(player.x+10, player.y, 'crosshair');
+      crosshair.anchor.set(0,0.5)
 
       //  Our controls.
       cursors = game.input.keyboard.createCursorKeys();
@@ -163,6 +166,10 @@
           player.frame = 4;
       }
 
+      crosshair.x = player.x+15;
+      crosshair.y = player.y+30;
+      crosshair.rotation = game.physics.arcade.angleToPointer(crosshair);
+
       //  Allow the player to jump if they are touching the ground.
       if (cursors.up.isDown && player.body.touching.down)
       {
@@ -172,8 +179,12 @@
       if(player.body.x != player.previousPosition.x || player.body.y != player.previousPosition.y || (animation == "stop" && player.previousAnimation != "stop")) {
         socket.emit('move', {'x':player.body.x, 'y':player.body.y, 'animation':animation});
         player.previousAnimation = animation
+        crosshair.visible = false;
+      } else {
+        crosshair.visible = true;
       }
-
   }
+
+  function difference(a, b) { return Math.abs(a - b);}
 
 })();
