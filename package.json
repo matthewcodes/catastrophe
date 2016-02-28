@@ -1,0 +1,24 @@
+{
+  "name": "catastrophe",
+  "version": "1.0.0",
+  "description": "A browser based game where you assume the identity of a cat that shoots other cats with bazookas and other comedy weapons.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matthewcodes/catastrophe.git"
+  },
+  "author": "Matthew Wilson <mwilson@mwil.so> (http://www.mwil.so)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/matthewcodes/catastrophe/issues"
+  },
+  "homepage": "https://github.com/matthewcodes/catastrophe#readme",
+  "dependencies": {
+    "express": "^4.13.4",
+    "phaser": "^2.4.6",
+    "socket.io": "^1.4.5"
+  }
+}
