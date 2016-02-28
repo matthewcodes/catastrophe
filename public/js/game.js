@@ -246,7 +246,7 @@
         socket.emit('move', {'x':player.body.x, 'y':player.body.y, 'animation':animation});
         player.previousAnimation = animation
         crosshair.visible = false;
-      } else {
+      } else if(player.alive) {
         crosshair.visible = true;
       }
   }
@@ -268,7 +268,7 @@
   }
 
   function fire() {
-      if (game.time.now > nextFire && bullets.countDead() > 0) {
+      if (player.alive && game.time.now > nextFire && bullets.countDead() > 0) {
           nextFire = game.time.now + fireRate;
 
           var bulletX = crosshair.x - 8
