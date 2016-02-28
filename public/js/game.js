@@ -13,6 +13,7 @@
   var otherPlayerBullets;
   var fireRate = 300;
   var nextFire = 0;
+  var bloodEmitter;
 
   function preload() {
 
@@ -22,7 +23,7 @@
       game.load.image('crosshair', 'assets/crosshair.png');
       game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
       game.load.image('bullet', 'assets/bullet.png');
-
+      game.load.image('blood', 'assets/blood.png');
   }
 
   socket.on('move', function (data) {
@@ -116,6 +117,12 @@
       otherPlayerBullets.setAll('outOfBoundsKill', true);
       otherPlayerBullets.setAll('body.allowGravity', true);
 
+      bloodEmitter = this.add.emitter(0, 0, 50);
+      bloodEmitter.makeParticles('blood');
+      bloodEmitter.setXSpeed(-200, 200);
+      bloodEmitter.setYSpeed(-200, 200);
+      bloodEmitter.angularDrag = 30;
+
       //  Our controls.
       cursors = game.input.keyboard.createCursorKeys();
 
@@ -182,6 +189,7 @@
       game.physics.arcade.overlap(otherPlayerBullets, platforms, bulletHitPlatform, null, this);
       game.physics.arcade.overlap(bullets, otherPlayersGroup, bulletHitPlayer, null, this);
       game.physics.arcade.overlap(otherPlayerBullets, player, bulletHitPlayer, null, this);
+      game.physics.arcade.overlap(bloodEmitter, platforms, bloodHitPlatform, null, this);
 
       //  Reset the players velocity (movement)
       player.body.velocity.x = 0;
@@ -249,7 +257,14 @@
 
   function bulletHitPlayer(bullet, player) {
     bullet.kill()
+    bloodEmitter.at(player);
+    bloodEmitter.explode(2000, 50);
     player.kill()
+  }
+
+  function bloodHitPlatform(blood, platform) {
+    console.log("bhp");
+    blood.kill()
   }
 
   function fire() {
