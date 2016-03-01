@@ -54,13 +54,30 @@ io.on('connection', function (socket) {
     socket.broadcast.emit('fire', data)
   })
 
+  socket.on('playerDied', function(data) {
+    console.log("player died:");
+    console.log(JSON.stringify(data));
+    if(removePlayer(data.id)) {
+      socket.broadcast.emit('playerDied', {id:data.id});
+    }
+  })
+
   socket.on('disconnect', function () {
     console.log("disconnect");
 
+    removePlayer(socket.id)
+
+    socket.broadcast.emit('removePlayer', {id:socket.id});
+
+  });
+
+  function removePlayer(id) {
     var index = -1;
 
     for(var i = 0; i < players.length; i++) {
-      if(players[i].id == socket.id) {
+      console.log("player id: "+players[i].id);
+      console.log("socket id: "+id);
+      if(players[i].id == id) {
         console.log("removing player");
         index = i;
         break;
@@ -68,10 +85,13 @@ io.on('connection', function (socket) {
     }
 
     if(index > -1) {
+      console.log("player removed");
       players.splice(i, 1);
+      return true;
+    } else {
+      console.log("player not in array");
+      return false;
     }
+  }
 
-    socket.broadcast.emit('removePlayer', {id:socket.id});
-
-  });
 });

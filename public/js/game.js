@@ -43,7 +43,21 @@
   })
 
   socket.on('removePlayer', function(data) {
-    otherPlayers[data.id].needsRemoved = true
+    if(otherPlayers[data.id]) {
+      otherPlayers[data.id].needsRemoved = true
+      otherPlayers[data.id].needsAdded = false;
+      otherPlayers[data.id].needsUpdated = false;
+      otherPlayers[data.id].needsKilled = false;
+    }
+  })
+
+  socket.on('playerDied', function(data) {
+    if(otherPlayers[data.id]) {
+      otherPlayers[data.id].needsKilled = true
+      otherPlayers[data.id].needsRemoved = false;
+      otherPlayers[data.id].needsAdded = false;
+      otherPlayers[data.id].needsUpdated = false;
+    }
   })
 
   socket.on('fire', function(data) {
@@ -144,14 +158,17 @@
 
       for (var id in otherPlayers) {
           var otherPlayer = otherPlayers[id];
-          if(otherPlayer.needsAdded) {
+          if(otherPlayer.needsAdded && !otherPlayer.needsKilled && !otherPlayer.needsRemoved) {
             otherPlayer.needsAdded = false
             otherPlayer.player = otherPlayersGroup.create(otherPlayer.x, otherPlayer.y, 'dude');
             otherPlayer.player.animations.add('left', [0, 1, 2, 3], 10, true);
             otherPlayer.player.animations.add('right', [5, 6, 7, 8], 10, true);
             otherPlayer.player.frame = 4
             otherPlayer.player.body.allowGravity = false
-          } else if(otherPlayer.needsUpdated) {
+            otherPlayer.player.id = otherPlayer.id
+            console.log(otherPlayer.player.id);
+          } else if(otherPlayer.needsUpdated && !otherPlayer.needsKilled && !otherPlayer.needsRemoved) {
+            console.log("update: "+otherPlayer.player.id);
             otherPlayer.needsUpdated = false
             otherPlayer.player.x = otherPlayer.x;
             otherPlayer.player.y = otherPlayer.y
@@ -170,6 +187,18 @@
             otherPlayer.needsRemoved = false;
             otherPlayer.needsAdded = false;
             otherPlayer.needsUpdated = false;
+            otherPlayer.needsKilled = false;
+
+          } else if(otherPlayer.needsKilled) {
+            if(otherPlayer.player.alive) {
+              bloodEmitter.at(otherPlayer.player);
+              bloodEmitter.explode(2000, 50);
+              otherPlayer.player.kill()
+            }
+            otherPlayer.needsRemoved = false;
+            otherPlayer.needsAdded = false;
+            otherPlayer.needsUpdated = false;
+            otherPlayer.needsKilled = false;
           }
       }
 
@@ -242,12 +271,14 @@
           bullet.rotation = Math.atan2(bullet.body.velocity.y, bullet.body.velocity.x);
       }, this);
 
-      if(player.body.x != player.previousPosition.x || player.body.y != player.previousPosition.y || (animation == "stop" && player.previousAnimation != "stop")) {
+      if(player.alive && (player.body.x != player.previousPosition.x || player.body.y != player.previousPosition.y || (animation == "stop" && player.previousAnimation != "stop"))) {
         socket.emit('move', {'x':player.body.x, 'y':player.body.y, 'animation':animation});
         player.previousAnimation = animation
         crosshair.visible = false;
       } else if(player.alive) {
         crosshair.visible = true;
+      } else if(!player.alive) {
+        crosshair.visible = false;
       }
   }
 
@@ -255,15 +286,18 @@
     bullet.kill()
   }
 
-  function bulletHitPlayer(bullet, player) {
+  function bulletHitPlayer(bullet, playerHit) {
+    console.log("player hit: "+playerHit.id);
+
     bullet.kill()
-    bloodEmitter.at(player);
+    bloodEmitter.at(playerHit);
     bloodEmitter.explode(2000, 50);
-    player.kill()
+    playerHit.kill()
+
+    socket.emit('playerDied', {'id':playerHit.id})
   }
 
   function bloodHitPlatform(blood, platform) {
-    console.log("bhp");
     blood.kill()
   }
 
