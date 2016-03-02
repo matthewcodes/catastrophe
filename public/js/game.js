@@ -57,6 +57,8 @@
       otherPlayers[data.id].needsRemoved = false;
       otherPlayers[data.id].needsAdded = false;
       otherPlayers[data.id].needsUpdated = false;
+    } else if(data.id.indexOf(player.id) > -1) {
+      player.needsKilled = true
     }
   })
 
@@ -99,6 +101,7 @@
 
       // The player and its settings
       player = game.add.sprite(32, game.world.height - 150, 'dude');
+      player.id = socket.id;
 
       //  We need to enable physics on the player
       game.physics.arcade.enable(player);
@@ -200,6 +203,12 @@
             otherPlayer.needsUpdated = false;
             otherPlayer.needsKilled = false;
           }
+      }
+
+      if(player.needsKilled && player.alive) {
+        bloodEmitter.at(player);
+        bloodEmitter.explode(2000, 50);
+        player.kill()
       }
 
       while(bulletsToFire.length) {
